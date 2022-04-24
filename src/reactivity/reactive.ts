@@ -12,6 +12,6 @@ export default function reactive(raw) {
       const res = Reflect.set(target, key, value);
       trigger(target, key);
       return res;
-    }
+    },
   });
-};
+}
