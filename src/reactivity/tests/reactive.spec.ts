@@ -1,4 +1,4 @@
-import reactive from '../reactive';
+import { isReactive, reactive } from '../reactive';
 
 describe('reactive', () => {
   it('happy path', () => {
@@ -17,5 +17,18 @@ describe('reactive', () => {
     observed.count++;
 
     expect(raw.count).toBe(2);
+  });
+
+  it('is reactive', () => {
+    // 判断对象是否为 reactive
+    const raw = {
+      count: 1,
+    };
+
+    const observed = reactive(raw);
+
+    expect(isReactive(raw)).toBe(false);
+
+    expect(isReactive(observed)).toBe(true);
   });
 });
