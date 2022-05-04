@@ -98,7 +98,12 @@ describe('effect', () => {
 
     stop(runner);
 
-    observed.count = 3;
+    // observed.count = 3;
+
+    // 优化 stop
+    // 问题描述：如果通过 observed.count++ 的方式来 set value，那么将会先触发 getter，此时又重新把 effect 收集了，相当于之前调用 stop 从 effect 的 deps 里的清除工作白费了，此时再触发自增时候 set 新值，还是会触发 trigger 更新 count 的值
+
+    observed.count++;
 
     expect(count).toBe(2);
   });
