@@ -50,7 +50,7 @@ function cleanupEffect(effect) {
   effect.deps.forEach((dep) => {
     dep.delete(effect);
   });
-  // 遍历从各个 deps 中移除 effect 实例自身后，重置一下 deps
+  // 优化：遍历从各个 deps 中移除 effect 实例自身后，重置清零 deps
   effect.deps.length = 0;
 }
 
