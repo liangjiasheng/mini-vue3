@@ -25,11 +25,16 @@ class ReactiveEffect {
       return this._fn();
     }
 
+    // effect 包裹下开启 shouldTrack，当访问响应式数据时候触发 getter 中的 track 才会进行依赖的收集
     shouldTrack = true;
+
     // 把当前 this 指向全局变量，便于依赖收集
     activeEffect = this;
+
     // 开启 shouldTrack 后进行 effect 函数的调用，进行依赖的收集，接收结果
     const res = this._fn();
+
+    // reset
     shouldTrack = false;
 
     return res;
@@ -78,6 +83,14 @@ export function track(target, key) {
     dep = new Set();
     depsMap.set(key, dep);
   }
+
+  trackEffects(dep);
+}
+
+function trackEffects(dep: any) {
+  // 检查 effect 是否已存在，避免重复添加
+  if (dep.has(activeEffect)) return;
+
   // effect 首次执行，访问响应式数据，触发 getter， 进行依赖收集，收集的目标是当前执行的 effect函数，所以需要使用全局变量 activeEffect 存起来
   dep.add(activeEffect);
   // 反向收集 deps 到 effect 实例上，在调用 stop 后，循环遍历 effect 身上的 deps，把 effect 自身从 deps 中删掉
