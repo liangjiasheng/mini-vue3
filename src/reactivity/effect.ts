@@ -63,7 +63,7 @@ export function stop(runner) {
   runner.effect.stop();
 }
 
-function isTracking() {
+export function isTracking() {
   // activeEffect: 由于 track 时候收集的 activeEffect 是在 effect 函数中指向当前 effect 实例，如果单纯的访问响应式数据属性，则不存在 activeEffect
   // shouldTrack: 判断 effect 函数是否需要收集依赖
   return shouldTrack && activeEffect !== undefined;
@@ -87,7 +87,7 @@ export function track(target, key) {
   trackEffects(dep);
 }
 
-function trackEffects(dep: any) {
+export function trackEffects(dep) {
   // 检查 effect 是否已存在，避免重复添加
   if (dep.has(activeEffect)) return;
 
@@ -102,8 +102,12 @@ export function trigger(target, key) {
   const depsMap = targetMap.get(target);
   const deps = depsMap.get(key);
 
+  triggerEffects(deps);
+}
+
+export function triggerEffects(dep) {
   // 循环取出 key 收集到的 effect 并执行
-  for (const effect of deps) {
+  for (const effect of dep) {
     // 响应式数据更新时出发 trigger，如果存在调度任务，则执行，否则执行原 effect 函数
     if (effect.scheduler) {
       return effect.scheduler();
