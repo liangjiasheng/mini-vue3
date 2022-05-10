@@ -5,7 +5,7 @@ let shouldTrack: boolean;
 
 const targetMap = new Map();
 
-class ReactiveEffect {
+export class ReactiveEffect {
   private _fn: any;
   // 反向收集 effect 函数所关联的响应式数据依赖
   deps: any = [];
@@ -15,8 +15,9 @@ class ReactiveEffect {
   onStop?: () => void;
   scheduler: Function | undefined;
 
-  constructor(fn) {
+  constructor(fn, scheduler?: Function) {
     this._fn = fn;
+    this.scheduler = scheduler;
   }
 
   run() {
@@ -118,7 +119,7 @@ export function triggerEffects(dep) {
 
 export default function effect(fn, options = {}) {
   // 抽象 ReactiveEffect 类，用来初始化和管理 effect，如后续用到的 stop 等
-  const _effect = new ReactiveEffect(fn);
+  const _effect = new ReactiveEffect(fn, options.scheduler);
 
   // 合并配置项至 effect 实例上
   extend(_effect, options);
