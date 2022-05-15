@@ -117,7 +117,7 @@ export function triggerEffects(dep) {
   }
 }
 
-export default function effect(fn, options = {}) {
+export default function effect(fn, options: any = {}) {
   // 抽象 ReactiveEffect 类，用来初始化和管理 effect，如后续用到的 stop 等
   const _effect = new ReactiveEffect(fn, options.scheduler);
 
