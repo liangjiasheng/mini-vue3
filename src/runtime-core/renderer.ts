@@ -1,4 +1,5 @@
 import { isObject } from '../shared';
+import { ShapeFlags } from '../shared/shapeFlags';
 import { createComponentInstance, setupComponent } from './component';
 
 export function render(vnode, container) {
@@ -7,10 +8,13 @@ export function render(vnode, container) {
 
 // patch 函数，负责处理 component 和 element 在 mount 和 update 阶段的一系列工作，单独抽离 patch 函数，是为了后面处理 children 时候递归调用
 function patch(vnode: any, container: any) {
+  const { shapeFlag } = vnode;
   //! TODO 分别处理 component 和 element 流程
-  if (typeof vnode.type === 'string') {
+  // 通过 if/ else 检测 vnode 或 children 是什么类型来判断渲染的方式（通过访问对象内属性来判断）比较低效，考虑到性能问题，可以借助位运算的方式进行优化（可读性 vs 性能）
+  debugger;
+  if (shapeFlag & ShapeFlags.ELEMENT) {
     processElement(vnode, container);
-  } else if (isObject(vnode.type)) {
+  } else if (shapeFlag & ShapeFlags.STATEFUL_COMPONENT) {
     processComponent(vnode, container);
   }
 }
@@ -21,12 +25,14 @@ function processElement(vnode, container) {
 }
 
 function mountElement(vnode: any, container: any) {
-  const el = document.createElement(vnode.type);
+  // vnode 是标签元素的情况下：绑定当前根元素到 vnode 上
+  const el = (vnode.el = document.createElement(vnode.type));
   const { props, children } = vnode;
+
   // children 支持文本 string 类型与子元素 array 类型
-  if (typeof children === 'string') {
+  if (vnode.shapeFlag & ShapeFlags.TEXT_CHILDREN) {
     el.textContent = children;
-  } else if (Array.isArray(children)) {
+  } else if (vnode.shapeFlag & ShapeFlags.ARRAY_CHILDREN) {
     mountChildren(children, el);
   }
   for (const key in props) {
@@ -63,4 +69,10 @@ function setupRenderEffect(instance, container) {
   const subTree = instance.render.call(instance.proxy);
 
   patch(subTree, container);
+
+  /* 
+    1、在 mountElement 步骤中创建根元素并赋值到 vnode 的 el 属性上
+    2、component 类型没有经过 mountElement 步骤，所以需要在最后处理完内部所有元素或组件后，把 render 函数返回的 vnode 上的 el 赋值给组件实例上
+  */
+  instance.vnode.el = subTree.el;
 }
