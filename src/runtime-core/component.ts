@@ -1,4 +1,7 @@
+import { shallowReadonly } from '../reactivity/reactive';
 import { proxyRefs } from '../reactivity/ref';
+import { emit } from './componentEmit';
+import { initProps } from './componentProps';
 import { PublicInstanceProxyHandlers } from './componentPublicInstance';
 
 export function createComponentInstance(vnode) {
@@ -6,11 +9,15 @@ export function createComponentInstance(vnode) {
     vnode,
     type: vnode.type,
     setupState: {},
+    props: {},
+    emit: () => {},
   };
+  component.emit = emit.bind(null, component) as any;
   return component;
 }
 
 export function setupComponent(instance) {
+  initProps(instance, instance.vnode.props);
   //! TODO 分别处理有状态组件与无状态组件（函数组件）
   setupStatefulComponent(instance);
 }
@@ -22,7 +29,10 @@ function setupStatefulComponent(instance: any) {
   const { setup } = component;
 
   if (setup) {
-    const setupResult = setup();
+    // 把父组件传递的属性 props 传给 setup 函数内部，并且需要使用 shallowReadonly 处理
+    const setupResult = setup(shallowReadonly(instance.props), {
+      emit: instance.emit,
+    });
     handleSetupResult(instance, setupResult);
   }
 }

@@ -12,10 +12,10 @@ export const App = {
         id: 'root',
         class: ['red', 'blue'],
         onClick() {
-          console.log('click');
+          // console.log('click');
         },
         onMousedown() {
-          console.log('mousedown');
+          // console.log('mousedown');
         },
       },
       // string
@@ -24,7 +24,17 @@ export const App = {
       [
         h('div', { class: 'red' }, `${this.msg} by ljs`),
         h('div', { class: 'blue' }, `${this.msg} by ljs`),
-        h(Foo, { msg: '这是从父组件 App 传递给子组件 Foo 的属性' }),
+        h(Foo, {
+          msg: '这是从父组件 App 传递给子组件 Foo 的属性',
+          onAdd: function (msg) {
+            console.log(
+              `父组件 App 接收到子组件 Foo 通过 emit 传递出来的消息：${msg}`
+            );
+          },
+          onAddFoo: function (msg) {
+            console.log(msg);
+          },
+        }),
       ]
     );
   },

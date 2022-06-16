@@ -11,7 +11,6 @@ function patch(vnode: any, container: any) {
   const { shapeFlag } = vnode;
   //! TODO 分别处理 component 和 element 流程
   // 通过 if/ else 检测 vnode 或 children 是什么类型来判断渲染的方式（通过访问对象内属性来判断）比较低效，考虑到性能问题，可以借助位运算的方式进行优化（可读性 vs 性能）
-  debugger;
   if (shapeFlag & ShapeFlags.ELEMENT) {
     processElement(vnode, container);
   } else if (shapeFlag & ShapeFlags.STATEFUL_COMPONENT) {
@@ -36,7 +35,15 @@ function mountElement(vnode: any, container: any) {
     mountChildren(children, el);
   }
   for (const key in props) {
-    el.setAttribute(key, props[key]);
+    const isOn = (event: string) => /^on[A-Z]/.test(event);
+    if (isOn(key)) {
+      // 截取事件名：onClick -> Click -> click
+      const event = key.slice(2).toLocaleLowerCase();
+      const handler = props[key];
+      el.addEventListener(event, handler);
+    } else {
+      el.setAttribute(key, props[key]);
+    }
   }
   container.appendChild(el);
 }

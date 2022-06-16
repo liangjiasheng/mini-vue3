@@ -11,3 +11,20 @@ export const hasChanged = (val, newValue) => {
 export const hasOwn = (val, key) => {
   return Object.prototype.hasOwnProperty.call(val, key);
 };
+
+export const toHandleKey = (str: string) => {
+  // AddFoo -> onAddFoo
+  return str ? `on${capitalize(str)}` : '';
+};
+
+export const camelize = (str: string) => {
+  // add-foo -> addFoo
+  return str.replace(/-(\w)/g, (_, c: string) => {
+    return c ? c.toUpperCase() : '';
+  });
+};
+
+export const capitalize = (str: string) => {
+  // addFoo -> AddFoo
+  return `${str.charAt(0).toUpperCase()}${str.slice(1)}`;
+};
