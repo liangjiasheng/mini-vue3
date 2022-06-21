@@ -3,6 +3,7 @@ import { proxyRefs } from '../reactivity/ref';
 import { emit } from './componentEmit';
 import { initProps } from './componentProps';
 import { PublicInstanceProxyHandlers } from './componentPublicInstance';
+import { initSlots } from './componentSlots';
 
 export function createComponentInstance(vnode) {
   const component = {
@@ -10,6 +11,7 @@ export function createComponentInstance(vnode) {
     type: vnode.type,
     setupState: {},
     props: {},
+    slots: {},
     emit: () => {},
   };
   component.emit = emit.bind(null, component) as any;
@@ -18,6 +20,7 @@ export function createComponentInstance(vnode) {
 
 export function setupComponent(instance) {
   initProps(instance, instance.vnode.props);
+  initSlots(instance, instance.vnode.children);
   //! TODO 分别处理有状态组件与无状态组件（函数组件）
   setupStatefulComponent(instance);
 }

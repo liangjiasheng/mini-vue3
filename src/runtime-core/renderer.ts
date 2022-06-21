@@ -1,6 +1,6 @@
-import { isObject } from '../shared';
 import { ShapeFlags } from '../shared/shapeFlags';
 import { createComponentInstance, setupComponent } from './component';
+import { Fragment, Text } from './vnode';
 
 export function render(vnode, container) {
   patch(vnode, container);
@@ -8,14 +8,35 @@ export function render(vnode, container) {
 
 // patch 函数，负责处理 component 和 element 在 mount 和 update 阶段的一系列工作，单独抽离 patch 函数，是为了后面处理 children 时候递归调用
 function patch(vnode: any, container: any) {
-  const { shapeFlag } = vnode;
-  //! TODO 分别处理 component 和 element 流程
-  // 通过 if/ else 检测 vnode 或 children 是什么类型来判断渲染的方式（通过访问对象内属性来判断）比较低效，考虑到性能问题，可以借助位运算的方式进行优化（可读性 vs 性能）
-  if (shapeFlag & ShapeFlags.ELEMENT) {
-    processElement(vnode, container);
-  } else if (shapeFlag & ShapeFlags.STATEFUL_COMPONENT) {
-    processComponent(vnode, container);
+  const { shapeFlag, type } = vnode;
+  // 处理特殊类型如 Fragment，Text和普通类型如标签元素，组件
+  switch (type) {
+    case Fragment:
+      processFragment(vnode, container);
+      break;
+    case Text:
+      processText(vnode, container);
+      break;
+    default:
+      // 通过 if/ else 检测 vnode 或 children 是什么类型来判断渲染的方式（通过访问对象内属性来判断）比较低效，考虑到性能问题，可以借助位运算的方式进行优化（可读性 vs 性能）
+      if (shapeFlag & ShapeFlags.ELEMENT) {
+        processElement(vnode, container);
+      } else if (shapeFlag & ShapeFlags.STATEFUL_COMPONENT) {
+        processComponent(vnode, container);
+      }
+      break;
   }
+}
+
+function processFragment(vnode: any, container: any) {
+  const { children } = vnode;
+  mountChildren(children, container);
+}
+
+function processText(vnode: any, container: any) {
+  const { children } = vnode;
+  const textNode = (vnode.el = document.createTextNode(children));
+  container.appendChild(textNode);
 }
 
 function processElement(vnode, container) {
