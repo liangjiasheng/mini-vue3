@@ -32,10 +32,13 @@ function setupStatefulComponent(instance: any) {
   const { setup } = component;
 
   if (setup) {
+    // 只允许在 setup 函数中使用 getCurrentInstance 来获取到组件的实例对象
+    setCurrentInstance(instance);
     // 把父组件传递的属性 props 传给 setup 函数内部，并且需要使用 shallowReadonly 处理
     const setupResult = setup(shallowReadonly(instance.props), {
       emit: instance.emit,
     });
+    setCurrentInstance(null);
     handleSetupResult(instance, setupResult);
   }
 }
@@ -56,4 +59,14 @@ function finishSetupComponent(instance: any) {
   if (component.render) {
     instance.render = component.render;
   }
+}
+
+let currentInstance = null;
+
+export function getCurrentInstance() {
+  return currentInstance;
+}
+
+export function setCurrentInstance(instance) {
+  currentInstance = instance;
 }
