@@ -11,7 +11,7 @@ export function initSlots(instance, children) {
 function normalizeObjectSlots(children: any, slots: any) {
   for (const key in children) {
     const value = children[key];
-    // 把组件的 children 挂载到组件实例上的 slots，并将其处理封装统一处理成函数的形式，可以支持组件调用时传入自身内部属性 props 供外部使用
+    // 把组件的 children 挂载到组件实例上的 slots，并将其处理统一封装成函数的形式，可以支持组件调用时传入自身内部属性 props 供外部使用
     slots[key] = (props) => normalizeSlotValue(value(props));
   }
 }

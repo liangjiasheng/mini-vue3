@@ -21,8 +21,8 @@ function patchProp(el, props) {
   }
 }
 
-function insert(el, container) {
-  container.appendChild(el);
+function insert(child, parent, anchor) {
+  parent.appendChild(child, anchor || null);
 }
 
 // 对外暴露默认的 createApp 函数，通过底层默认的，也就是浏览器的渲染接口来创建默认渲染器提供给 createApp 调用

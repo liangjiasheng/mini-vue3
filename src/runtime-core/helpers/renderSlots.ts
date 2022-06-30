@@ -1,7 +1,7 @@
 import { createVNode, Fragment } from '../vnode';
 
 export function renderSlots(slots, name, props) {
-  // 通过模板中 v-slot 指定的名字，在模板编译后，也就是 render 函数中通过 createVNode 创建组件时传入的第三个对象参数中，找到插槽名字所匹配的渲染内容
+  // 通过模板中 v-slot 指定的名字，编译后，模板上的 slot 标签会被转换成 renderSlots 函数，然后传入组件实例上的 slots（也就是父组件调用时，模板中组件标签包裹的内容，或者说 render 函数传递给当前组件的 children）和插槽名以及自身 props
   const slot = slots[name];
 
   if (slot) {
