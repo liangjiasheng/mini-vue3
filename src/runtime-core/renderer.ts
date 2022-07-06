@@ -26,10 +26,10 @@ export function createRenderer(options) {
     // 处理特殊类型如 Fragment，Text 和普通类型如标签元素，组件
     switch (type) {
       case Fragment:
-        processFragment(n2, container, parent, anchor);
+        processFragment(n1, n2, container, parent, anchor);
         break;
       case Text:
-        processText(n2, container);
+        processText(n1, n2, container);
         break;
       default:
         // 通过 if/ else 检测 n1, n2 或 children 是什么类型来判断渲染的方式（通过访问对象内属性来判断）比较低效，考虑到性能问题，可以借助位运算的方式进行优化（可读性 vs 性能）
@@ -42,14 +42,14 @@ export function createRenderer(options) {
     }
   }
 
-  function processFragment(vnode, container: any, parent, anchor) {
-    const { children } = vnode;
+  function processFragment(n1, n2, container: any, parent, anchor) {
+    const { children } = n2;
     mountChildren(children, container, parent, anchor);
   }
 
-  function processText(vnode, container: any) {
-    const { children } = vnode;
-    const textNode = (vnode.el = document.createTextNode(children));
+  function processText(n1, n2, container: any) {
+    const { children } = n2;
+    const textNode = (n2.el = document.createTextNode(children));
     container.appendChild(textNode);
   }
 
@@ -81,7 +81,7 @@ export function createRenderer(options) {
     }
 
     // container.appendChild(el);
-    hostInsert(el, container);
+    hostInsert(el, container, anchor);
   }
 
   function patchElement(n1, n2, container, parent, anchor) {
@@ -132,11 +132,13 @@ export function createRenderer(options) {
     anchor
   ) {
     let i = 0; // 指向 n2 开头的位置
+    const l2 = c2.length;
     let e1 = c1.length - 1;
-    let e2 = c2.length - 1;
+    let e2 = l2 - 1;
     function isSameNode(n1, n2) {
       return n1.type === n2.type && n1.key === n2.key;
     }
+    // 从左往右移动 i（新节点）指针，比较双方当前索引元素是否为相同节点
     while (i <= e1 && i <= e2) {
       const n1 = c1[i];
       const n2 = c2[i];
@@ -149,8 +151,7 @@ export function createRenderer(options) {
       i++;
     }
 
-    console.log('左侧比对完，此时的i：', i);
-
+    // 从右往左移动新旧尾部指针，比较双方当前索引元素是否为相同节点
     while (i <= e1 && i <= e2) {
       const n1 = c1[e1];
       const n2 = c2[e2];
@@ -163,20 +164,96 @@ export function createRenderer(options) {
       e2--;
     }
 
-    console.log('右侧比对完，此时的i：', i);
-
     if (i > e1) {
+      // 双端对比过程，首尾新增的情况
       if (i <= e2) {
         // c2 比 c1 多，新增
-        // const nextPos = e2 + 1;
-        // const anchor = nextPos < c2.length ? c2[nextPos].el : null;
-        // console.log(nextPos < c2.length ? c2[nextPos].el : null);
-        // if (nextPos < c2.length) {
-        //   patch(null, c2[i], container, parent, c2[nextPos]);
-        // } else {
-        //   patch(null, c2[i], container, parent, null);
-        // }
-        // patch(null, c2[i], container, parent, anchor);
+        const nextPos = e2 + 1;
+        // 锚点：后一个位置索引如果小于新节点长度，则获取后面元素作为锚点插入，否则超出范围，直接 append 到尾部
+        const anchor = nextPos < l2 ? c2[nextPos].el : null;
+        patch(null, c2[i], container, parent, anchor);
+      }
+    } else {
+      // 双端对比结束，进入中间对比
+      const s1 = i;
+      const s2 = i;
+      // 新节点中间对比的个数
+      const toBePatched = e2 - s2 + 1;
+      // 找到相同并进行 patch 的次数
+      let patched = 0;
+      let moved = false;
+      let maxNewIndexSoFar = 0;
+      // 遍历新节点中间部分，存放其 key -> newIndex 的位置表
+      const keyToNewIndexMap = new Map();
+      // 记录新节点中间部分（从 0 开始）映射到旧节点中间部分的索引值
+      const newIndexToOldIndexMap = new Array(toBePatched);
+      // 初始化 -> 后期这个 0 值意义在于其表示需要创建
+      for (let i = 0; i < toBePatched; i++) newIndexToOldIndexMap[i] = 0;
+      for (let i = s2; i <= e2; i++) {
+        const nextChild = c2[i];
+        keyToNewIndexMap.set(nextChild.key, i);
+      }
+      // 遍历老节点中间部分
+      for (let i = s1; i <= e1; i++) {
+        const preChild = c1[i];
+
+        // 优化在新的中间部分全部 patch 完而老的还有的情况，那么老的剩余的都删除即可
+        if (patched >= toBePatched) {
+          hostRemove(preChild.el);
+          continue;
+        }
+
+        // 记录老的中间部分是否存在映射到新的中间部分
+        let newIndex;
+        if (preChild.key != null) {
+          // key 值的作用体现在，如果老节点有设置 key 值，那么在此处查询的时候，就可以通过映射查找到，时间复杂度为 O(1)
+          newIndex = keyToNewIndexMap.get(preChild.key);
+        } else {
+          // 如果没有设置 key 值，那么只能再次循环新节点中间部分来查找
+          for (let j = s2; j < e2; j++) {
+            if (isSameNode(preChild, c2[j])) {
+              newIndex = j;
+
+              break;
+            }
+          }
+        }
+
+        if (newIndex === undefined) {
+          //经过以上查找都没结果，那么代表老的在新的没对应映射，所以执行删除操作
+          hostRemove(preChild.el);
+        } else {
+          if (newIndex >= maxNewIndexSoFar) {
+            maxNewIndexSoFar = newIndex;
+          } else {
+            moved = true;
+          }
+          // 加 1 操作是为了避免 for 循环中 i 为 0，导致赋值后与上述 0 代表需要创建所冲突
+          newIndexToOldIndexMap[newIndex - s2] = i + 1;
+          // 找到对应节点，继续对其进行更新操作（继续 patch 他们的 props & children）
+          patch(preChild, c2[newIndex], container, parent, null);
+          patched++;
+        }
+      }
+      // 处理中间部分中元素位置移动与创建
+      // 通过 getSequence 方法找到中间部分中的最长递增子序列
+      const sequence = moved ? getSequence(newIndexToOldIndexMap) : [];
+      let j = sequence.length - 1;
+      for (let i = toBePatched - 1; i >= 0; i--) {
+        const nextIndex = i + s2;
+        const nextChild = c2[nextIndex];
+        const anchor = nextIndex + 1 < l2 ? c2[nextIndex + 1].el : null;
+        if (newIndexToOldIndexMap[i] === 0) {
+          // 创建
+          patch(null, nextChild, container, parent, anchor);
+        } else if (moved) {
+          if (j < 0 || i !== sequence[j]) {
+            // 移动
+            hostInsert(nextChild.el, container, anchor);
+          } else {
+            j--;
+          }
+        }
       }
     }
   }
@@ -272,4 +349,46 @@ export function createRenderer(options) {
   return {
     createApp: createAppAPI(render),
   };
+}
+
+// 获取最长递增子序列
+function getSequence(arr) {
+  const p = arr.slice();
+  const result = [0];
+  let i, j, u, v, c;
+  const len = arr.length;
+  for (i = 0; i < len; i++) {
+    const arrI = arr[i];
+    if (arrI !== 0) {
+      j = result[result.length - 1];
+      if (arr[j] < arrI) {
+        p[i] = j;
+        result.push(i);
+        continue;
+      }
+      u = 0;
+      v = result.length - 1;
+      while (u < v) {
+        c = (u + v) >> 1;
+        if (arr[result[c]] < arrI) {
+          u = c + 1;
+        } else {
+          v = c;
+        }
+      }
+      if (arrI < arr[result[u]]) {
+        if (u > 0) {
+          p[i] = result[u - 1];
+        }
+        result[u] = i;
+      }
+    }
+  }
+  u = result.length;
+  v = result[u - 1];
+  while (u-- > 0) {
+    result[u] = v;
+    v = p[v];
+  }
+  return result;
 }

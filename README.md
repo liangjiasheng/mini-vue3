@@ -1,2 +1,3 @@
-# mini-vue
+# mini-vue3
+
 study vue3

@@ -7,22 +7,31 @@ function createElement(type) {
   return document.createElement(type);
 }
 
-function patchProp(el, props) {
-  for (const key in props) {
-    const isOn = (event: string) => /^on[A-Z]/.test(event);
-    if (isOn(key)) {
-      // 截取事件名：onClick -> Click -> click
-      const event = key.slice(2).toLocaleLowerCase();
-      const handler = props[key];
-      el.addEventListener(event, handler);
-    } else {
-      el.setAttribute(key, props[key]);
-    }
+function patchProp(el, key, prevVal, nextVal) {
+  const isOn = (event: string) => /^on[A-Z]/.test(event);
+  if (isOn(key)) {
+    // 截取事件名：onClick -> Click -> click
+    const event = key.slice(2).toLocaleLowerCase();
+    const handler = nextVal[key];
+    el.addEventListener(event, handler);
+  } else {
+    el.setAttribute(key, nextVal[key]);
   }
 }
 
 function insert(child, parent, anchor) {
-  parent.appendChild(child, anchor || null);
+  parent.insertBefore(child, anchor || null);
+}
+
+function remove(child) {
+  const parent = child.parentNode;
+  if (parent) {
+    parent.removeChild(child);
+  }
+}
+
+function setElementText(el, text) {
+  el.textContent = text;
 }
 
 // 对外暴露默认的 createApp 函数，通过底层默认的，也就是浏览器的渲染接口来创建默认渲染器提供给 createApp 调用
@@ -30,6 +39,8 @@ export const { createApp } = createRenderer({
   createElement,
   patchProp,
   insert,
+  remove,
+  setElementText,
 });
 
 // 依赖关系发生改变，默认导出 runtime-dom，而 runtime-dom（默认导出浏览器 dom 的运行时接口，可以自定义） 依赖 runtime-core（底层都依赖它创建内部的 render 函数） 来生成渲染器及应用启动的函数
