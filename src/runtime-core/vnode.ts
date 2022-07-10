@@ -1,8 +1,8 @@
-import { ShapeFlags } from '../shared/shapeFlags';
+import { ShapeFlags } from "../shared/shapeFlags";
 
-export const Fragment = Symbol('Fragment');
+export const Fragment = Symbol("Fragment");
 
-export const Text = Symbol('Text');
+export const Text = Symbol("Text");
 
 // 创建虚拟节点，也就是平时在 render 函数中使用的 h 函数
 export function createVNode(type, props?, children?) {
@@ -13,18 +13,19 @@ export function createVNode(type, props?, children?) {
     el: null,
     key: props && props.key,
     shapeFlag: getShapeFlag(type),
+    component: null,
   };
 
   // 通过 children 来判断 vnode 子节点是文本还是数组元素
   if (Array.isArray(children)) {
     vnode.shapeFlag |= ShapeFlags.ARRAY_CHILDREN;
-  } else if (typeof children === 'string') {
+  } else if (typeof children === "string") {
     vnode.shapeFlag |= ShapeFlags.TEXT_CHILDREN;
   }
 
   // 通过 vnode 是有状态组件并且其 children 是对象来判断其拥有 slots
   if (vnode.shapeFlag & ShapeFlags.STATEFUL_COMPONENT) {
-    if (typeof children === 'object') {
+    if (typeof children === "object") {
       vnode.shapeFlag |= ShapeFlags.SLOT_CHILDREN;
     }
   }
@@ -40,7 +41,7 @@ export function createTextVNode(text: string) {
 // 初始化 vnode shapeFlag 属性
 function getShapeFlag(type: any) {
   // 通过 type 来判断 vnode 的类型是标签元素还是组件
-  return typeof type === 'string'
+  return typeof type === "string"
     ? ShapeFlags.ELEMENT
     : ShapeFlags.STATEFUL_COMPONENT;
 }

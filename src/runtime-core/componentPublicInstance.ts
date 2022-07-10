@@ -1,9 +1,10 @@
-import { hasOwn } from '../shared';
+import { hasOwn } from "../shared";
 
 // 在 render 上下文中平时还会访问到诸如：$data, $props, $slots 等属性，可以统一整合代理到上下文中以便访问
 const publicPropertiesMap = {
   $el: (i) => i.vnode.el,
   $slots: (i) => i.slots,
+  $props: (i) => i.props,
 };
 
 // 负责处理 component 各项数据代理到 render 函数的上下文中，在 render 内部通过 this 直接访问

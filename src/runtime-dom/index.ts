@@ -1,4 +1,4 @@
-import { createRenderer } from '../runtime-core/renderer';
+import { createRenderer } from "../runtime-core/renderer";
 
 // dom 层，组织浏览器渲染接口的实现
 
@@ -12,10 +12,10 @@ function patchProp(el, key, prevVal, nextVal) {
   if (isOn(key)) {
     // 截取事件名：onClick -> Click -> click
     const event = key.slice(2).toLocaleLowerCase();
-    const handler = nextVal[key];
+    const handler = nextVal;
     el.addEventListener(event, handler);
   } else {
-    el.setAttribute(key, nextVal[key]);
+    el.setAttribute(key, nextVal);
   }
 }
 
@@ -44,4 +44,4 @@ export const { createApp } = createRenderer({
 });
 
 // 依赖关系发生改变，默认导出 runtime-dom，而 runtime-dom（默认导出浏览器 dom 的运行时接口，可以自定义） 依赖 runtime-core（底层都依赖它创建内部的 render 函数） 来生成渲染器及应用启动的函数
-export * from '../runtime-core';
+export * from "../runtime-core";

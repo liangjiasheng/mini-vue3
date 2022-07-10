@@ -1,9 +1,10 @@
-import effect from '../reactivity/effect';
-import { EMPTY_OBJ } from '../shared';
-import { ShapeFlags } from '../shared/shapeFlags';
-import { createComponentInstance, setupComponent } from './component';
-import { createAppAPI } from './createApp';
-import { Fragment, Text } from './vnode';
+import effect from "../reactivity/effect";
+import { EMPTY_OBJ } from "../shared";
+import { ShapeFlags } from "../shared/shapeFlags";
+import { createComponentInstance, setupComponent } from "./component";
+import { shouldComponentUpdate } from "./componentUpdateUtils";
+import { createAppAPI } from "./createApp";
+import { Fragment, Text } from "./vnode";
 
 // 对外提供自定义渲染器的接口，接收底层渲染接口作为参数，返回使用自定义渲染器的 createApp 函数
 export function createRenderer(options) {
@@ -85,7 +86,7 @@ export function createRenderer(options) {
   }
 
   function patchElement(n1, n2, container, parent, anchor) {
-    console.log('patchElement', n1, n2);
+    console.log("patchElement", n1, n2);
     const oldProps = n1.props || EMPTY_OBJ;
     const newProps = n2.props || EMPTY_OBJ;
 
@@ -108,7 +109,7 @@ export function createRenderer(options) {
         }
       } else {
         // old 子节点是文本，new 子节点是数组，则把 container 下的 old 文本节点置空后，把 new 子节点挂载到 container 上
-        hostSetElementText(container, '');
+        hostSetElementText(container, "");
         mountChildren(c2, container, parent, anchor);
       }
     } else {
@@ -118,7 +119,7 @@ export function createRenderer(options) {
         hostSetElementText(container, c2);
       } else {
         // old 子节点是数组，new 子节点也是数组，则需要对二者进行 diff 操作，比对找出需要更新的子节点
-        console.log('diff 新旧 children');
+        console.log("diff 新旧 children");
         patchKeyedChildren(c1, c2, container, parent, anchor);
       }
     }
@@ -135,14 +136,14 @@ export function createRenderer(options) {
     const l2 = c2.length;
     let e1 = c1.length - 1;
     let e2 = l2 - 1;
-    function isSameNode(n1, n2) {
+    function isSomeVNodeType(n1, n2) {
       return n1.type === n2.type && n1.key === n2.key;
     }
     // 从左往右移动 i（新节点）指针，比较双方当前索引元素是否为相同节点
     while (i <= e1 && i <= e2) {
       const n1 = c1[i];
       const n2 = c2[i];
-      if (isSameNode(n1, n2)) {
+      if (isSomeVNodeType(n1, n2)) {
         patch(n1, n2, container, parent, anchor);
       } else {
         break;
@@ -155,7 +156,7 @@ export function createRenderer(options) {
     while (i <= e1 && i <= e2) {
       const n1 = c1[e1];
       const n2 = c2[e2];
-      if (isSameNode(n1, n2)) {
+      if (isSomeVNodeType(n1, n2)) {
         patch(n1, n2, container, parent, anchor);
       } else {
         break;
@@ -211,7 +212,7 @@ export function createRenderer(options) {
         } else {
           // 如果没有设置 key 值，那么只能再次循环新节点中间部分来查找
           for (let j = s2; j < e2; j++) {
-            if (isSameNode(preChild, c2[j])) {
+            if (isSomeVNodeType(preChild, c2[j])) {
               newIndex = j;
 
               break;
@@ -294,12 +295,36 @@ export function createRenderer(options) {
   }
 
   function processComponent(n1, n2, container: any, parent, anchor) {
-    //! TODO 分别处理 mount 和 update 流程
     if (!n1) {
       mountComponent(n2, container, parent, anchor);
     } else {
-      console.log('component 更新逻辑');
+      updateComponent(n1, n2);
     }
+  }
+
+  function updateComponent(n1, n2) {
+    // 获取已挂载的组件实例并挂在到新节点上，供后续更新继续操作
+    const instance = (n2.component = n1.component);
+    instance.next = n2;
+    // 判断组件是否需要更新
+    // 条件为父组件传递的 props 发生改变，才会触发子组件自身的更新
+    if (shouldComponentUpdate(n1, n2)) {
+      // 把新节点挂载到 instance 上，供 effect 函数内部获取新的组件 vnode
+      instance.next = n2;
+      instance.update();
+    } else {
+      // 无需更新，如父组件只改变了自身属性的情况下
+      // 更新一下 vnode 及其上面的 el 属性
+      n2.el = n1.el;
+      instance.vnode = n2;
+    }
+  }
+
+  // patch 组件内部 vnode 前，对组件实例的属性等进行更新，然后在后续中 patch 操作时候执行 render 时，内部通过 this 访问的是更新后的数据
+  function updateComponentPreRender(instance, nextVNode) {
+    instance.vnode = nextVNode;
+    instance.next = null;
+    instance.props = nextVNode.props;
   }
 
   function mountComponent(initialVNode, container: any, parent, anchor) {
@@ -308,17 +333,21 @@ export function createRenderer(options) {
       2、设置 component 实例的各项数据，如 props, slots, proxy等等
       3、调用 render 函数获取 subTree
     */
-    const instance = createComponentInstance(initialVNode, parent);
+    const instance = (initialVNode.component = createComponentInstance(
+      initialVNode,
+      parent
+    ));
     setupComponent(instance);
     setupRenderEffect(instance, initialVNode, container, anchor);
   }
 
   function setupRenderEffect(instance, initialVNode, container, anchor) {
     // 响应式数据改变 -> 重新执行 render 函数 -> 根据改变后的数据重新生成 subTree，然后通过 patch 进行更新
-    effect(() => {
+    // 利用 effect 机制，返回 runner，供组件更新时候调用
+    instance.update = effect(() => {
       // 标识组件实例是否已挂载
       if (!instance.isMounted) {
-        console.log('component init');
+        console.log("component init");
 
         // 由于可以在 render 函数中可以通过 this 访问到诸如 component setup 结果或实例上属性等，所以需要把各项数据代理到 render 函数的上下文中
         const { proxy } = instance;
@@ -335,7 +364,13 @@ export function createRenderer(options) {
         initialVNode.el = subTree.el;
         instance.isMounted = true;
       } else {
-        console.log('component update');
+        console.log("component update");
+        // 若触发组件更新，在 updateComponent 函数中会给 next 赋值
+        const { next, vnode } = instance;
+        if (next) {
+          next.el = vnode.el;
+          updateComponentPreRender(instance, next);
+        }
         const { proxy } = instance;
         // 重新执行 render，生成新的 subTree 后，重新赋值到 instance 上，并调用 patch 函数进行更新
         const subTree = instance.render.call(proxy);
