@@ -4,6 +4,7 @@ import { ShapeFlags } from "../shared/shapeFlags";
 import { createComponentInstance, setupComponent } from "./component";
 import { shouldComponentUpdate } from "./componentUpdateUtils";
 import { createAppAPI } from "./createApp";
+import { queueJobs } from "./scheduler";
 import { Fragment, Text } from "./vnode";
 
 // 对外提供自定义渲染器的接口，接收底层渲染接口作为参数，返回使用自定义渲染器的 createApp 函数
@@ -344,41 +345,49 @@ export function createRenderer(options) {
   function setupRenderEffect(instance, initialVNode, container, anchor) {
     // 响应式数据改变 -> 重新执行 render 函数 -> 根据改变后的数据重新生成 subTree，然后通过 patch 进行更新
     // 利用 effect 机制，返回 runner，供组件更新时候调用
-    instance.update = effect(() => {
-      // 标识组件实例是否已挂载
-      if (!instance.isMounted) {
-        console.log("component init");
+    instance.update = effect(
+      () => {
+        // 标识组件实例是否已挂载
+        if (!instance.isMounted) {
+          console.log("component init");
 
-        // 由于可以在 render 函数中可以通过 this 访问到诸如 component setup 结果或实例上属性等，所以需要把各项数据代理到 render 函数的上下文中
-        const { proxy } = instance;
-        const subTree = instance.render.call(proxy);
+          // 由于可以在 render 函数中可以通过 this 访问到诸如 component setup 结果或实例上属性等，所以需要把各项数据代理到 render 函数的上下文中
+          const { proxy } = instance;
+          const subTree = instance.render.call(proxy);
 
-        instance.subTree = subTree;
+          instance.subTree = subTree;
 
-        patch(null, subTree, container, instance, anchor);
+          patch(null, subTree, container, instance, anchor);
 
-        /* 
+          /* 
           1、在 mountElement 步骤中创建根元素并赋值到 vnode 的 el 属性上
           2、component 类型没有经过 mountElement 步骤，所以需要在最后处理完内部所有元素或组件后，把 render 函数返回的 vnode 上的 el 赋值给组件实例上
         */
-        initialVNode.el = subTree.el;
-        instance.isMounted = true;
-      } else {
-        console.log("component update");
-        // 若触发组件更新，在 updateComponent 函数中会给 next 赋值
-        const { next, vnode } = instance;
-        if (next) {
-          next.el = vnode.el;
-          updateComponentPreRender(instance, next);
+          initialVNode.el = subTree.el;
+          instance.isMounted = true;
+        } else {
+          console.log("component update");
+          // 若触发组件更新，在 updateComponent 函数中会给 next 赋值
+          const { next, vnode } = instance;
+          if (next) {
+            next.el = vnode.el;
+            updateComponentPreRender(instance, next);
+          }
+          const { proxy } = instance;
+          // 重新执行 render，生成新的 subTree 后，重新赋值到 instance 上，并调用 patch 函数进行更新
+          const subTree = instance.render.call(proxy);
+          const prevTree = instance.subTree;
+          instance.subTree = subTree;
+          patch(prevTree, subTree, container, instance, anchor);
         }
-        const { proxy } = instance;
-        // 重新执行 render，生成新的 subTree 后，重新赋值到 instance 上，并调用 patch 函数进行更新
-        const subTree = instance.render.call(proxy);
-        const prevTree = instance.subTree;
-        instance.subTree = subTree;
-        patch(prevTree, subTree, container, instance, anchor);
+      },
+      {
+        // 配置异步更新的调度任务
+        scheduler() {
+          queueJobs(instance.update);
+        },
       }
-    });
+    );
   }
 
   return {
